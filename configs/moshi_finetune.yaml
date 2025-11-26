@@ -1,0 +1,35 @@
+# Configuration optimized for Moshi fine-tuning
+
+# Audio processing - Moshi/Mimi specifications
+target_sample_rate: 24000  # Required by Moshi
+resample_method: "kaiser_best"  # Higher quality resampling
+
+# Speaker diarization
+min_speakers: 2  # Expect at least 2 speakers for dialogue
+max_speakers: 2  # Limit to 2 for clean AI-user dialogue
+min_segment_duration: 0.1  # Filter out very short segments
+
+# Audio separation
+fade_duration: 0.005  # Short fade to preserve timing accuracy
+overlap_strategy: "mix"  # Mix overlapping speech
+
+# Role assignment
+role_assignment_strategy: "speaking_time"  # Primary speaker = AI, secondary = user
+
+# Output
+output_format: "wav"
+bit_depth: 16
+normalize_audio: true
+max_amplitude: 0.95  # Slightly conservative to avoid clipping
+
+# Processing
+device: "auto"
+batch_size: 1
+num_workers: 4  # Parallel processing for batch mode
+
+# Moshi-specific
+# Frame rate: 12.5 Hz
+# Frame size: 80ms
+# Latency: 80ms (1 frame)
+# Bandwidth: 1.1 kbps
+# Input format: [B, C=1, T]

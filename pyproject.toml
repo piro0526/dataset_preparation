@@ -1,0 +1,33 @@
+[project]
+name = "dataset_preparation"
+version = "0.1.0"
+description = "Prepare Dataset based on PodcastFillers Dataset to finetune Moshi."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "matplotlib>=3.7.0",
+    "seaborn>=0.12.0",
+    "jupyter>=1.0.0",
+    "librosa>=0.10.0",
+    "ipython>=8.0.0",
+    "pyannote.audio>=3.1.0",
+    "torch>=2.0.0",
+    "torchaudio>=2.0.0",
+    "soundfile>=0.12.0",
+    "resampy>=0.4.0",
+    "scipy>=1.10.0",
+    "pydub>=0.25.0",
+    "pyyaml>=6.0",
+    "tqdm>=4.65.0",
+    "huggingface-hub>=0.19.0",
+    "torchcodec>=0.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]

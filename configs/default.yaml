@@ -1,0 +1,28 @@
+# Default configuration for PodcastFillers speaker diarization
+
+# Audio processing
+target_sample_rate: 24000  # Moshi requires 24kHz
+resample_method: "kaiser_fast"  # Options: kaiser_best, kaiser_fast, scipy
+
+# Speaker diarization
+min_speakers: 2
+max_speakers: 4
+min_segment_duration: 0.0  # Minimum segment duration in seconds
+
+# Audio separation
+fade_duration: 0.01  # Fade in/out duration at segment boundaries (seconds)
+overlap_strategy: "mix"  # Options: mix, primary, first
+
+# Role assignment
+role_assignment_strategy: "speaking_time"  # Assign roles based on total speaking time
+
+# Output
+output_format: "wav"
+bit_depth: 16  # 16-bit PCM
+normalize_audio: true
+max_amplitude: 0.99
+
+# Processing
+device: "auto"  # Options: auto, cuda, cpu
+batch_size: 1
+num_workers: 1
