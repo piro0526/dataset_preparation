@@ -141,8 +141,8 @@ Environment Variables:
     # Global arguments
     parser.add_argument(
         '--data-dir',
-        default='data',
-        help='Path to PodcastFillers dataset (default: data)'
+        default='data/PodcastFillers',
+        help='Path to PodcastFillers dataset (default: data/PodcastFillers)'
     )
     parser.add_argument(
         '--output-dir',

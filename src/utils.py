@@ -2,6 +2,9 @@
 Utility functions for audio processing and visualization.
 """
 
+import gc
+import os
+import psutil
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -259,3 +262,81 @@ def print_separator(title: str = "", width: int = 60, char: str = "="):
         print(f"{char*width}")
     else:
         print(f"\n{char*width}")
+
+
+def clear_memory():
+    """
+    Clear Python and PyTorch memory caches.
+
+    This function:
+    - Runs Python garbage collection
+    - Clears PyTorch CUDA cache if available
+    - Reports memory usage
+    """
+    # Force garbage collection
+    gc.collect()
+
+    # Clear PyTorch cache if available
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+    except ImportError:
+        pass
+
+    # Additional garbage collection after PyTorch cleanup
+    gc.collect()
+
+
+def get_memory_usage() -> dict:
+    """
+    Get current memory usage statistics.
+
+    Returns:
+        Dictionary with memory usage information:
+        - total_mb: Total system memory in MB
+        - available_mb: Available memory in MB
+        - used_mb: Used memory in MB
+        - percent: Percentage of memory used
+        - process_mb: Memory used by current process in MB
+    """
+    mem = psutil.virtual_memory()
+    process = psutil.Process(os.getpid())
+
+    return {
+        'total_mb': mem.total / (1024 * 1024),
+        'available_mb': mem.available / (1024 * 1024),
+        'used_mb': mem.used / (1024 * 1024),
+        'percent': mem.percent,
+        'process_mb': process.memory_info().rss / (1024 * 1024)
+    }
+
+
+def print_memory_usage(prefix: str = ""):
+    """
+    Print current memory usage.
+
+    Args:
+        prefix: Optional prefix string for the output
+    """
+    mem = get_memory_usage()
+    prefix_str = f"{prefix}: " if prefix else ""
+    print(f"{prefix_str}Memory: {mem['used_mb']:.0f}MB / {mem['total_mb']:.0f}MB "
+          f"({mem['percent']:.1f}%), Process: {mem['process_mb']:.0f}MB")
+
+
+def check_memory_available(required_mb: float, safety_margin: float = 1.2) -> bool:
+    """
+    Check if enough memory is available for processing.
+
+    Args:
+        required_mb: Required memory in MB
+        safety_margin: Safety margin multiplier (default 1.2 = 20% extra)
+
+    Returns:
+        True if enough memory is available, False otherwise
+    """
+    mem = get_memory_usage()
+    required_with_margin = required_mb * safety_margin
+    return mem['available_mb'] >= required_with_margin

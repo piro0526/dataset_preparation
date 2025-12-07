@@ -12,6 +12,7 @@ from .audio_separator import AudioSeparator
 from .data_loader import PodcastFillersLoader
 from .speaker_diarization import SpeakerDiarizer
 from .stereo_generator import StereoAudioGenerator
+from .utils import clear_memory, print_memory_usage
 
 
 class DiarizationPipeline:
@@ -113,6 +114,9 @@ class DiarizationPipeline:
         print(f"Processing: {episode_name}")
         print(f"{'='*60}")
 
+        # Print initial memory usage
+        print_memory_usage("Initial")
+
         # Setup output directory
         if output_subdir is None:
             output_subdir = split
@@ -124,6 +128,7 @@ class DiarizationPipeline:
         audio, sr = self.loader.load_episode_audio(episode_name, split)
         duration = len(audio) / sr
         print(f"  ✓ Duration: {duration:.2f}s, Sample rate: {sr}Hz")
+        print_memory_usage("  After loading")
 
         # Stage 2: Diarization
         print("\n[2/6] Performing speaker diarization...")
@@ -137,6 +142,7 @@ class DiarizationPipeline:
 
         segments = self.diarizer.diarize(audio, sr, **diarization_params)
         print(f"  ✓ Found {len(segments)} segments")
+        print_memory_usage("  After diarization")
 
         # Get speaker statistics
         stats = self.diarizer.get_speaker_statistics(segments)
@@ -157,16 +163,22 @@ class DiarizationPipeline:
         print("\n[4/6] Separating audio by speaker...")
         separated = self.separator.separate_by_speaker(audio, segments, sr)
         print(f"  ✓ Separated into {len(separated)} speaker tracks")
+        print_memory_usage("  After separation")
 
         # Create role-based tracks
         role_tracks = self.separator.create_two_speaker_tracks(
             audio, segments, role_mapping, sr
         )
 
+        # Clear separated tracks to free memory
+        del separated
+        clear_memory()
+
         # Stage 5: Generate stereo audio
         print("\n[5/6] Generating stereo audio (24kHz)...")
         stereo = self.stereo_generator.create_stereo_from_roles(role_tracks, sr)
         print(f"  ✓ Stereo shape: {stereo.shape}")
+        print_memory_usage("  After stereo generation")
 
         # Validate
         validation = self.stereo_generator.validate_stereo(stereo)
@@ -224,7 +236,12 @@ class DiarizationPipeline:
             'validation': validation
         }
 
+        # Clean up large objects before returning
+        del audio, stereo, role_tracks
+        clear_memory()
+
         print(f"\n✓ Processing complete!")
+        print_memory_usage("Final")
         return result
 
     def batch_process(
@@ -257,21 +274,29 @@ class DiarizationPipeline:
         print(f"\n{'='*60}")
         print(f"Batch Processing: {len(episode_names)} episodes from {split}")
         print(f"{'='*60}")
+        print_memory_usage("Initial batch")
 
         results = []
         errors = []
 
         for i, episode_name in enumerate(tqdm(episode_names, desc="Processing episodes")):
+            print(f"\n--- Episode {i+1}/{len(episode_names)} ---")
+
             # Check if already processed
             if skip_existing:
                 output_dir = self.output_dir / split / episode_name
                 if (output_dir / "stereo_24k.wav").exists():
-                    print(f"\nSkipping {episode_name} (already processed)")
+                    print(f"Skipping {episode_name} (already processed)")
                     continue
 
             try:
                 result = self.process_episode(episode_name, split)
                 results.append(result)
+
+                # Clear memory after each episode to prevent accumulation
+                clear_memory()
+                print_memory_usage(f"After episode {i+1}")
+
             except Exception as e:
                 error_info = {
                     'episode_name': episode_name,
@@ -280,6 +305,9 @@ class DiarizationPipeline:
                 }
                 errors.append(error_info)
                 print(f"\n✗ Error processing {episode_name}: {e}")
+
+                # Clear memory even after errors
+                clear_memory()
                 continue
 
         # Save summary

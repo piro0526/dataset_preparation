@@ -45,6 +45,9 @@ class AudioSeparator:
         """
         Separate audio into individual speaker tracks.
 
+        Memory-efficient implementation that processes segments without
+        creating full-length copies upfront.
+
         Args:
             audio: Audio data as numpy array (mono), shape: (num_samples,)
             segments: List of speaker segments
@@ -60,11 +63,16 @@ class AudioSeparator:
         # Get unique speakers
         speakers = list(set(s.speaker_id for s in segments))
 
-        # Initialize output arrays
-        separated = {speaker: np.zeros_like(audio) for speaker in speakers}
+        # Initialize output arrays with a memory-efficient approach
+        # Use float32 to save memory (vs float64)
+        audio_dtype = np.float32 if audio.dtype == np.float64 else audio.dtype
+        separated = {speaker: np.zeros(len(audio), dtype=audio_dtype) for speaker in speakers}
 
         # Create masks for each segment
         fade_samples = int(self.fade_duration * sr)
+
+        # Calculate max absolute value once for clipping
+        audio_max = np.abs(audio).max()
 
         for segment in segments:
             start_idx = int(segment.start * sr)
@@ -77,31 +85,28 @@ class AudioSeparator:
             if start_idx >= end_idx:
                 continue
 
+            # Extract segment audio
+            segment_audio = audio[start_idx:end_idx].astype(audio_dtype)
+            segment_length = len(segment_audio)
+
             # Create mask with fade in/out
-            segment_length = end_idx - start_idx
-            mask = np.ones(segment_length)
+            if fade_samples > 0 and segment_length > 2 * fade_samples:
+                # Apply fade in
+                segment_audio[:fade_samples] *= np.linspace(0, 1, fade_samples, dtype=audio_dtype)
+                # Apply fade out
+                segment_audio[-fade_samples:] *= np.linspace(1, 0, fade_samples, dtype=audio_dtype)
+            elif fade_samples > 0 and segment_length > fade_samples:
+                # Short segment: apply partial fade
+                half_len = segment_length // 2
+                segment_audio[:half_len] *= np.linspace(0, 1, half_len, dtype=audio_dtype)
+                segment_audio[-half_len:] *= np.linspace(1, 0, half_len, dtype=audio_dtype)
 
-            # Apply fade in
-            if fade_samples > 0 and segment_length > fade_samples:
-                fade_in = np.linspace(0, 1, min(fade_samples, segment_length))
-                mask[:len(fade_in)] = fade_in
+            # Add to speaker track
+            separated[segment.speaker_id][start_idx:end_idx] += segment_audio
 
-            # Apply fade out
-            if fade_samples > 0 and segment_length > fade_samples:
-                fade_out = np.linspace(1, 0, min(fade_samples, segment_length))
-                mask[-len(fade_out):] = fade_out
-
-            # Apply mask to audio
-            separated[segment.speaker_id][start_idx:end_idx] += audio[start_idx:end_idx] * mask
-
-        # Handle potential overlaps (where sum > original)
+        # Handle potential overlaps (clip to prevent amplification)
         for speaker in speakers:
-            # Clip to prevent amplification
-            separated[speaker] = np.clip(
-                separated[speaker],
-                -np.abs(audio).max(),
-                np.abs(audio).max()
-            )
+            np.clip(separated[speaker], -audio_max, audio_max, out=separated[speaker])
 
         return separated
 
